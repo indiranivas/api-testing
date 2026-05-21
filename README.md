@@ -8,11 +8,11 @@ A lightweight, multi-agent telemetry collection system with SQLite backend. Stor
 
 - ✅ **Multi-Agent Support** — Separate endpoints for Salesforce, Bhoomi, and D365
 - ✅ **API Key Authentication** — Unique API key per service for security
-- ✅ **SQLite Backend** — Lightweight, no external dependencies
+- ✅ **PostgreSQL Database** — Render PostgreSQL backend with JSONB support
 - ✅ **Isolated Data** — Each agent's data stored in separate tables
 - ✅ **CORS Enabled** — Accept requests from any origin
 - ✅ **Large Payload Support** — Handle up to 50MB JSON payloads
-- ✅ **Live & Deployed** — Running on Render
+- ✅ **Live & Deployed** — Running on Render with persistent database
 
 ## Quick Start
 
@@ -286,6 +286,8 @@ Tracking CRM synchronization:
 
 ## Database Structure
 
+**Backend:** PostgreSQL (Render)
+
 **Tables:**
 - `salesforce_telemetry` — Salesforce execution data
 - `bhoomi_telemetry` — Bhoomi execution data
@@ -294,11 +296,13 @@ Tracking CRM synchronization:
 **Schema:**
 ```sql
 CREATE TABLE salesforce_telemetry (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-    payload TEXT
+    id SERIAL PRIMARY KEY,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    payload JSONB
 );
 ```
+
+Each table uses JSONB for flexible schema and better query performance.
 
 ## Error Handling
 
