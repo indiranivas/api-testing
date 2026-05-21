@@ -1,10 +1,18 @@
 const express = require("express");
-const sqlite3 = require("sqlite3").verbose();
+const { Pool } = require("pg");
 const cors = require("cors");
 require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 8000;
+
+// PostgreSQL Connection Pool
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
+    }
+});
 
 const API_KEYS = {
     salesforce: process.env.SALESFORCE_API_KEY || "sk-salesforce-123456",
@@ -15,35 +23,41 @@ const API_KEYS = {
 app.use(express.json({ limit: "50mb" }));
 app.use(cors());
 
-// SQLite DB
-const db = new sqlite3.Database("./telemetry.db");
+// Initialize database tables
+async function initializeDatabase() {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS salesforce_telemetry (
+                id SERIAL PRIMARY KEY,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                payload JSONB
+            )
+        `);
 
-// Create tables
-db.serialize(() => {
-    db.run(`
-    CREATE TABLE IF NOT EXISTS salesforce_telemetry (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-        payload TEXT
-    )
-    `);
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS bhoomi_telemetry (
+                id SERIAL PRIMARY KEY,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                payload JSONB
+            )
+        `);
 
-    db.run(`
-    CREATE TABLE IF NOT EXISTS bhoomi_telemetry (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-        payload TEXT
-    )
-    `);
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS d365_telemetry (
+                id SERIAL PRIMARY KEY,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                payload JSONB
+            )
+        `);
 
-    db.run(`
-    CREATE TABLE IF NOT EXISTS d365_telemetry (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-        payload TEXT
-    )
-    `);
-});
+        console.log("Database tables initialized");
+    } catch (error) {
+        console.error("Database initialization error:", error);
+    }
+}
+
+// Initialize database on startup
+initializeDatabase();
 
 // --------------------------------------
 // API Key Middleware (Per Service)
@@ -70,15 +84,14 @@ function validateApiKey(service) {
     };
 }
 
-// --------------------------------------
 // Helper functions
-//--------------------------------------
 function saveTelemetry(tableName, payload, res) {
-    db.run(
-        `INSERT INTO ${tableName} (payload) VALUES (?)`,
-        [JSON.stringify(payload)],
-        function (err) {
+    pool.query(
+        `INSERT INTO ${tableName} (payload) VALUES ($1) RETURNING id`,
+        [payload],
+        (err, result) => {
             if (err) {
+                console.error("Database error:", err);
                 return res.status(500).json({
                     success: false,
                     error: err.message
@@ -87,27 +100,27 @@ function saveTelemetry(tableName, payload, res) {
 
             return res.json({
                 success: true,
-                id: this.lastID
+                id: result.rows[0].id
             });
         }
     );
 }
 
 function fetchTelemetry(tableName, res) {
-    db.all(
-        `SELECT * FROM ${tableName} ORDER BY id DESC`,
-        [],
-        (err, rows) => {
+    pool.query(
+        `SELECT id, timestamp, payload FROM ${tableName} ORDER BY id DESC`,
+        (err, result) => {
             if (err) {
+                console.error("Database error:", err);
                 return res.status(500).json({
                     error: err.message
                 });
             }
 
-            const formatted = rows.map(row => ({
+            const formatted = result.rows.map(row => ({
                 id: row.id,
                 timestamp: row.timestamp,
-                payload: JSON.parse(row.payload)
+                payload: row.payload
             }));
 
             res.json(formatted);
@@ -160,16 +173,32 @@ app.get("/telemetry/d365", validateApiKey("d365"), (req, res) => {
     fetchTelemetry("d365_telemetry", res);
 });
 
-
-// Health
+// Health Check
 app.get("/health", (req, res) => {
-    res.json({
-        status: "ok"
+    pool.query("SELECT NOW()", (err) => {
+        if (err) {
+            return res.status(500).json({
+                status: "error",
+                message: "Database connection failed"
+            });
+        }
+        res.json({
+            status: "ok",
+            timestamp: new Date().toISOString()
+        });
+    });
+});
+
+// Graceful shutdown
+process.on("SIGTERM", () => {
+    console.log("SIGTERM received, closing pool");
+    pool.end(() => {
+        console.log("pool ended");
+        process.exit(0);
     });
 });
 
 app.listen(PORT, () => {
-    console.log(
-        `Telemetry API running on ${PORT}`
-    );
+    console.log(`Telemetry API running on port ${PORT}`);
+    console.log("Connected to PostgreSQL database");
 });
