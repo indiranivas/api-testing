@@ -29,9 +29,12 @@ app.use((req, res, next) => {
         console.log(`\n[${new Date().toISOString()}] ${req.method} ${req.path}`);
         console.log("Headers:", {
             "content-type": req.headers["content-type"],
-            "authorization": req.headers["authorization"] ? "***" : "missing"
+            "authorization": req.headers["authorization"] ? "Bearer ***" : "missing"
         });
-        console.log("Body:", req.body);
+        console.log("Raw Body:", req.body);
+        console.log("Body Type:", typeof req.body);
+        console.log("Body Keys:", Object.keys(req.body));
+        console.log("Body Size:", JSON.stringify(req.body).length, "bytes");
     }
     next();
 });
@@ -108,23 +111,34 @@ function saveTelemetry(tableName, payload, res) {
         });
     }
 
-    console.log(`Saving telemetry to ${tableName}:`, JSON.stringify(payload));
+    console.log(`\n>>> Inserting into ${tableName}`);
+    console.log("Payload Type:", typeof payload);
+    console.log("Payload Value:", JSON.stringify(payload, null, 2));
+    console.log("Payload Keys:", Object.keys(payload));
 
     pool.query(
-        `INSERT INTO ${tableName} (payload) VALUES ($1) RETURNING id`,
+        `INSERT INTO ${tableName} (payload) VALUES ($1) RETURNING id, timestamp, payload`,
         [payload],
         (err, result) => {
             if (err) {
-                console.error("Database error:", err);
+                console.error("❌ Database error:", err.message);
+                console.error("Error code:", err.code);
                 return res.status(500).json({
                     success: false,
                     error: err.message
                 });
             }
 
+            const savedRecord = result.rows[0];
+            console.log("✅ Saved successfully!");
+            console.log("Saved Record ID:", savedRecord.id);
+            console.log("Saved Record Timestamp:", savedRecord.timestamp);
+            console.log("Saved Record Payload:", JSON.stringify(savedRecord.payload, null, 2));
+
             return res.json({
                 success: true,
-                id: result.rows[0].id,
+                id: savedRecord.id,
+                timestamp: savedRecord.timestamp,
                 message: "Telemetry saved successfully"
             });
         }
