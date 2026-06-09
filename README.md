@@ -39,18 +39,21 @@ GET https://telemetry-api-96pk.onrender.com/health
 ```http
 POST https://telemetry-api-96pk.onrender.com/telemetry/salesforce
 GET https://telemetry-api-96pk.onrender.com/telemetry/salesforce
+DELETE https://telemetry-api-96pk.onrender.com/telemetry/salesforce/:id
 ```
 
 ### Bhoomi
 ```http
 POST https://telemetry-api-96pk.onrender.com/telemetry/bhoomi
 GET https://telemetry-api-96pk.onrender.com/telemetry/bhoomi
+DELETE https://telemetry-api-96pk.onrender.com/telemetry/bhoomi/:id
 ```
 
 ### D365
 ```http
 POST https://telemetry-api-96pk.onrender.com/telemetry/d365
 GET https://telemetry-api-96pk.onrender.com/telemetry/d365
+DELETE https://telemetry-api-96pk.onrender.com/telemetry/d365/:id
 ```
 
 ## Authentication
@@ -181,6 +184,24 @@ curl -H "Authorization: Bearer sk-bhoomi-789abc" \
 ```bash
 curl -H "Authorization: Bearer sk-d365-xyz789" \
   https://telemetry-api-96pk.onrender.com/telemetry/d365
+```
+
+### 3. Delete Specific Telemetry (DELETE)
+
+Delete by numeric `id` from a specific service table.
+
+**Salesforce:**
+```bash
+curl -X DELETE -H "Authorization: Bearer sk-salesforce-123456" \
+  https://telemetry-api-96pk.onrender.com/telemetry/salesforce/1
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "deletedId": 1
+}
 ```
 
 ## Testing in Postman
@@ -331,6 +352,23 @@ Status: `401 Unauthorized`
 ```
 Status: `500 Internal Server Error`
 
+### Invalid ID / Not Found
+```json
+{
+  "success": false,
+  "error": "Invalid id. Use a positive integer"
+}
+```
+Status: `400 Bad Request`
+
+```json
+{
+  "success": false,
+  "error": "Telemetry id 123 not found"
+}
+```
+Status: `404 Not Found`
+
 ## JavaScript Client Example
 
 ```javascript
@@ -470,6 +508,4 @@ For issues:
 3. Ensure Authorization header format: `Bearer YOUR_API_KEY`
 4. Check GitHub repo: https://github.com/indiranivas/api-testing
 
-## License
 
-MIT

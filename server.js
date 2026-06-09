@@ -128,6 +128,43 @@ function fetchTelemetry(tableName, res) {
     );
 }
 
+function deleteTelemetry(tableName, id, res) {
+    const parsedId = Number.parseInt(id, 10);
+
+    if (!Number.isInteger(parsedId) || parsedId <= 0) {
+        return res.status(400).json({
+            success: false,
+            error: "Invalid id. Use a positive integer"
+        });
+    }
+
+    pool.query(
+        `DELETE FROM ${tableName} WHERE id = $1 RETURNING id`,
+        [parsedId],
+        (err, result) => {
+            if (err) {
+                console.error("Database error:", err);
+                return res.status(500).json({
+                    success: false,
+                    error: err.message
+                });
+            }
+
+            if (result.rowCount === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: `Telemetry id ${parsedId} not found`
+                });
+            }
+
+            return res.json({
+                success: true,
+                deletedId: result.rows[0].id
+            });
+        }
+    );
+}
+
 // --------------------------------------
 // Salesforce Endpoints
 // --------------------------------------
@@ -141,6 +178,10 @@ app.post("/telemetry/salesforce", validateApiKey("salesforce"), (req, res) => {
 
 app.get("/telemetry/salesforce", validateApiKey("salesforce"), (req, res) => {
     fetchTelemetry("salesforce_telemetry", res);
+});
+
+app.delete("/telemetry/salesforce/:id", validateApiKey("salesforce"), (req, res) => {
+    deleteTelemetry("salesforce_telemetry", req.params.id, res);
 });
 
 // --------------------------------------
@@ -158,6 +199,10 @@ app.get("/telemetry/bhoomi", validateApiKey("bhoomi"), (req, res) => {
     fetchTelemetry("bhoomi_telemetry", res);
 });
 
+app.delete("/telemetry/bhoomi/:id", validateApiKey("bhoomi"), (req, res) => {
+    deleteTelemetry("bhoomi_telemetry", req.params.id, res);
+});
+
 // --------------------------------------
 // D365 Endpoints
 // --------------------------------------
@@ -171,6 +216,10 @@ app.post("/telemetry/d365", validateApiKey("d365"), (req, res) => {
 
 app.get("/telemetry/d365", validateApiKey("d365"), (req, res) => {
     fetchTelemetry("d365_telemetry", res);
+});
+
+app.delete("/telemetry/d365/:id", validateApiKey("d365"), (req, res) => {
+    deleteTelemetry("d365_telemetry", req.params.id, res);
 });
 
 // Health Check
