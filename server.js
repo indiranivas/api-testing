@@ -23,6 +23,19 @@ const API_KEYS = {
 app.use(express.json({ limit: "50mb" }));
 app.use(cors());
 
+// Request logging middleware
+app.use((req, res, next) => {
+    if (req.path.startsWith("/telemetry/")) {
+        console.log(`\n[${new Date().toISOString()}] ${req.method} ${req.path}`);
+        console.log("Headers:", {
+            "content-type": req.headers["content-type"],
+            "authorization": req.headers["authorization"] ? "***" : "missing"
+        });
+        console.log("Body:", req.body);
+    }
+    next();
+});
+
 // Initialize database tables
 async function initializeDatabase() {
     try {
@@ -86,6 +99,17 @@ function validateApiKey(service) {
 
 // Helper functions
 function saveTelemetry(tableName, payload, res) {
+    // Validate payload is not empty
+    if (!payload || Object.keys(payload).length === 0) {
+        console.warn(`Warning: Empty payload received for ${tableName}`);
+        return res.status(400).json({
+            success: false,
+            error: "Payload cannot be empty. Send valid JSON data in request body."
+        });
+    }
+
+    console.log(`Saving telemetry to ${tableName}:`, JSON.stringify(payload));
+
     pool.query(
         `INSERT INTO ${tableName} (payload) VALUES ($1) RETURNING id`,
         [payload],
@@ -100,7 +124,8 @@ function saveTelemetry(tableName, payload, res) {
 
             return res.json({
                 success: true,
-                id: result.rows[0].id
+                id: result.rows[0].id,
+                message: "Telemetry saved successfully"
             });
         }
     );
