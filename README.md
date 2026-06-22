@@ -1,22 +1,23 @@
-# Telemetry API
+# Unified Telemetry API v2.0
 
-A lightweight, multi-agent telemetry collection system with SQLite backend. Store and track execution data from multiple services (Salesforce, Bhoomi, D365) with separate API keys and isolated data storage.
+A powerful, single-endpoint telemetry collection system with PostgreSQL backend. Send data from any service using one API key, and automatically create tables for new services.
 
 **Live API:** https://telemetry-api-96pk.onrender.com
 
 ## Features
 
-- ✅ **Multi-Agent Support** — Separate endpoints for Salesforce, Bhoomi, and D365
-- ✅ **API Key Authentication** — Unique API key per service for security
-- ✅ **PostgreSQL Database** — Render PostgreSQL backend with JSONB support
-- ✅ **Isolated Data** — Each agent's data stored in separate tables
+- ✅ **Single Unified Endpoint** — One `/telemetry` endpoint for all services
+- ✅ **One Bearer Token** — Single authentication for all services
+- ✅ **Dynamic Table Creation** — Automatically create tables for new services
+- ✅ **Service Discovery** — List all services and their stats
+- ✅ **PostgreSQL Backend** — JSONB support for flexible schemas
+- ✅ **Automatic Indexing** — Fast queries on timestamps
 - ✅ **CORS Enabled** — Accept requests from any origin
 - ✅ **Large Payload Support** — Handle up to 50MB JSON payloads
-- ✅ **Live & Deployed** — Running on Render with persistent database
 
 ## Quick Start
 
-### Check if API is running
+### Health Check
 ```bash
 curl https://telemetry-api-96pk.onrender.com/health
 ```
@@ -24,488 +25,476 @@ curl https://telemetry-api-96pk.onrender.com/health
 Response:
 ```json
 {
-  "status": "ok"
+  "status": "ok",
+  "database": "connected"
 }
 ```
 
 ## API Endpoints
 
-### Health Check
+### Send Telemetry (POST)
 ```http
-GET https://telemetry-api-96pk.onrender.com/health
+POST https://telemetry-api-96pk.onrender.com/telemetry
+Headers:
+  Content-Type: application/json
+  Authorization: Bearer YOUR_TOKEN
+  X-Service: salesforce
+Body:
+  { actual JSON data }
 ```
 
-### Salesforce
+### Fetch Telemetry (GET)
 ```http
-POST https://telemetry-api-96pk.onrender.com/telemetry/salesforce
-GET https://telemetry-api-96pk.onrender.com/telemetry/salesforce
-DELETE https://telemetry-api-96pk.onrender.com/telemetry/salesforce/:id
+GET https://telemetry-api-96pk.onrender.com/telemetry
+Headers:
+  Authorization: Bearer YOUR_TOKEN
+  X-Service: salesforce
+Query Parameters:
+  ?limit=50&offset=0
 ```
 
-### Bhoomi
+### Delete Record (DELETE)
 ```http
-POST https://telemetry-api-96pk.onrender.com/telemetry/bhoomi
-GET https://telemetry-api-96pk.onrender.com/telemetry/bhoomi
-DELETE https://telemetry-api-96pk.onrender.com/telemetry/bhoomi/:id
+DELETE https://telemetry-api-96pk.onrender.com/telemetry/:id
+Headers:
+  Authorization: Bearer YOUR_TOKEN
+  X-Service: salesforce
 ```
 
-### D365
+### List All Services (GET)
 ```http
-POST https://telemetry-api-96pk.onrender.com/telemetry/d365
-GET https://telemetry-api-96pk.onrender.com/telemetry/d365
-DELETE https://telemetry-api-96pk.onrender.com/telemetry/d365/:id
+GET https://telemetry-api-96pk.onrender.com/services
+Headers:
+  Authorization: Bearer YOUR_TOKEN
+```
+
+Response:
+```json
+{
+  "total_services": 3,
+  "services": [
+    {
+      "name": "salesforce",
+      "table": "salesforce_telemetry",
+      "records": 150,
+      "lastUpdate": "2026-06-09T10:06:05.604Z"
+    },
+    {
+      "name": "bhoomi",
+      "table": "bhoomi_telemetry",
+      "records": 42,
+      "lastUpdate": "2026-06-09T09:20:34.189Z"
+    },
+    {
+      "name": "d365",
+      "table": "d365_telemetry",
+      "records": 28,
+      "lastUpdate": "2026-06-08T15:45:12.000Z"
+    }
+  ]
+}
+```
+
+### Service Stats (GET)
+```http
+GET https://telemetry-api-96pk.onrender.com/services/salesforce/stats
+Headers:
+  Authorization: Bearer YOUR_TOKEN
+```
+
+Response:
+```json
+{
+  "service": "salesforce",
+  "stats": {
+    "totalRecords": 150,
+    "firstRecord": "2026-05-21T10:30:45.000Z",
+    "lastRecord": "2026-06-09T10:06:05.604Z",
+    "last24Hours": 45,
+    "last7Days": 128
+  }
+}
 ```
 
 ## Authentication
 
-All telemetry endpoints require an API key in the `Authorization` header:
-
+**Single Bearer Token:**
 ```
-Authorization: Bearer YOUR_API_KEY
+Authorization: Bearer sk-telemetry-master-key-123
 ```
 
-**Valid Keys:**
-- **Salesforce:** `sk-salesforce-123456`
-- **Bhoomi:** `sk-bhoomi-789abc`
-- **D365:** `sk-d365-xyz789`
+Use this token for all services. No separate keys needed!
+
+## Service Header
+
+**Required for all /telemetry endpoints:**
+```
+X-Service: service-name
+```
+
+Examples:
+- `X-Service: salesforce`
+- `X-Service: bhoomi`
+- `X-Service: d365`
+- `X-Service: custom-agent`
+- `X-Service: any-new-service` (automatically creates table)
 
 ## Usage Examples
 
-### 1. Send Telemetry Data (POST)
+### Send Data from Salesforce
 
-**Salesforce Example:**
 ```bash
-curl -X POST https://telemetry-api-96pk.onrender.com/telemetry/salesforce \
-  -H "Authorization: Bearer sk-salesforce-123456" \
+curl -X POST https://telemetry-api-96pk.onrender.com/telemetry \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-telemetry-master-key-123" \
+  -H "X-Service: salesforce" \
   -d '{
     "status": "success",
-    "executionId": "exec-sf-001",
+    "executionId": "sf-sync-001",
     "responseTime": 250,
     "data": {
       "recordsProcessed": 1000,
-      "errors": 0,
-      "timestamp": "2026-05-21T10:30:45Z"
+      "recordsCreated": 200,
+      "recordsUpdated": 800
     }
   }'
 ```
 
-**Response:**
+Response:
 ```json
 {
   "success": true,
-  "id": 1
+  "service": "salesforce",
+  "id": 45,
+  "timestamp": "2026-06-09T10:06:05.604Z",
+  "message": "Data saved to salesforce service"
 }
 ```
 
-**Bhoomi Example:**
+### Send Data from New Service
+
 ```bash
-curl -X POST https://telemetry-api-96pk.onrender.com/telemetry/bhoomi \
-  -H "Authorization: Bearer sk-bhoomi-789abc" \
+curl -X POST https://telemetry-api-96pk.onrender.com/telemetry \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-telemetry-master-key-123" \
+  -H "X-Service: custom-agent" \
   -d '{
     "status": "running",
-    "executionId": "exec-bhoomi-042",
-    "responseTime": 180,
-    "data": {
-      "recordsProcessed": 5000,
-      "warnings": 2
-    }
+    "agentId": "agent-123",
+    "taskId": "task-456"
   }'
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "id": 2
-}
-```
+**Result:** New table `custom_agent_telemetry` is automatically created! ✅
 
-**D365 Example:**
+### Fetch Data with Pagination
+
 ```bash
-curl -X POST https://telemetry-api-96pk.onrender.com/telemetry/d365 \
-  -H "Authorization: Bearer sk-d365-xyz789" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "status": "failed",
-    "executionId": "exec-d365-789",
-    "responseTime": 5000,
-    "data": {
-      "error": "Connection timeout",
-      "retries": 3
-    }
-  }'
+# Get first 50 records
+curl -H "Authorization: Bearer sk-telemetry-master-key-123" \
+  -H "X-Service: salesforce" \
+  "https://telemetry-api-96pk.onrender.com/telemetry?limit=50&offset=0"
+
+# Get next 50 records
+curl -H "Authorization: Bearer sk-telemetry-master-key-123" \
+  -H "X-Service: salesforce" \
+  "https://telemetry-api-96pk.onrender.com/telemetry?limit=50&offset=50"
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "id": 3
-}
-```
+### Delete a Record
 
-### 2. Fetch All Telemetry (GET)
-
-**Salesforce:**
 ```bash
-curl -H "Authorization: Bearer sk-salesforce-123456" \
-  https://telemetry-api-96pk.onrender.com/telemetry/salesforce
+curl -X DELETE \
+  -H "Authorization: Bearer sk-telemetry-master-key-123" \
+  -H "X-Service: salesforce" \
+  "https://telemetry-api-96pk.onrender.com/telemetry/45"
 ```
 
-**Response:**
-```json
-[
-  {
-    "id": 1,
-    "timestamp": "2026-05-21 10:30:45",
-    "payload": {
-      "status": "success",
-      "executionId": "exec-sf-001",
-      "responseTime": 250,
-      "data": {
-        "recordsProcessed": 1000,
-        "errors": 0,
-        "timestamp": "2026-05-21T10:30:45Z"
-      }
-    }
-  }
-]
-```
+### List All Services
 
-**Bhoomi:**
 ```bash
-curl -H "Authorization: Bearer sk-bhoomi-789abc" \
-  https://telemetry-api-96pk.onrender.com/telemetry/bhoomi
+curl -H "Authorization: Bearer sk-telemetry-master-key-123" \
+  https://telemetry-api-96pk.onrender.com/services
 ```
 
-**D365:**
+### Get Service Statistics
+
 ```bash
-curl -H "Authorization: Bearer sk-d365-xyz789" \
-  https://telemetry-api-96pk.onrender.com/telemetry/d365
+curl -H "Authorization: Bearer sk-telemetry-master-key-123" \
+  https://telemetry-api-96pk.onrender.com/services/salesforce/stats
 ```
 
-### 3. Delete Specific Telemetry (DELETE)
+## Postman Examples
 
-Delete by numeric `id` from a specific service table.
+### POST Request Setup
+1. **Method:** POST
+2. **URL:** `https://telemetry-api-96pk.onrender.com/telemetry`
+3. **Headers:**
+   - `Content-Type: application/json`
+   - `Authorization: Bearer sk-telemetry-master-key-123`
+   - `X-Service: salesforce`
+4. **Body (raw JSON):**
+   ```json
+   {
+     "status": "success",
+     "executionId": "test-001",
+     "responseTime": 250,
+     "data": {
+       "recordsProcessed": 100
+     }
+   }
+   ```
 
-**Salesforce:**
-```bash
-curl -X DELETE -H "Authorization: Bearer sk-salesforce-123456" \
-  https://telemetry-api-96pk.onrender.com/telemetry/salesforce/1
-```
+### GET Request Setup
+1. **Method:** GET
+2. **URL:** `https://telemetry-api-96pk.onrender.com/telemetry?limit=50&offset=0`
+3. **Headers:**
+   - `Authorization: Bearer sk-telemetry-master-key-123`
+   - `X-Service: salesforce`
 
-**Response:**
-```json
-{
-  "success": true,
-  "deletedId": 1
-}
-```
-
-## Testing in Postman
-
-### Create a new request:
-
-1. **Set Method:** POST
-2. **Set URL:** `https://telemetry-api-96pk.onrender.com/telemetry/salesforce`
-3. **Add Header:**
-   - Key: `Authorization`
-   - Value: `Bearer sk-salesforce-123456`
-4. **Set Body (raw, JSON):**
-```json
-{
-  "status": "success",
-  "executionId": "test-123",
-  "responseTime": 250,
-  "data": {
-    "recordsProcessed": 1000,
-    "errors": 0
-  }
-}
-```
-5. **Click Send**
-
-### Fetch Data:
-
-1. **Set Method:** GET
-2. **Set URL:** `https://telemetry-api-96pk.onrender.com/telemetry/salesforce`
-3. **Add Header:**
-   - Key: `Authorization`
-   - Value: `Bearer sk-salesforce-123456`
-4. **Click Send**
-
-## Payload Schema
-
-The API accepts any JSON payload. Example:
-
-```json
-{
-  "status": "running|success|failed",
-  "executionId": "unique-identifier",
-  "responseTime": 250,
-  "data": {
-    "recordsProcessed": 1000,
-    "errors": 0,
-    "warnings": 2,
-    "custom": "any data"
-  }
-}
-```
-
-## Agent-Specific Examples
-
-### Salesforce Agent
-Tracking Salesforce record sync operations:
-```json
-{
-  "status": "success",
-  "executionId": "sf-sync-2026-05-21-001",
-  "responseTime": 1200,
-  "data": {
-    "recordsProcessed": 5000,
-    "recordsCreated": 1200,
-    "recordsUpdated": 3800,
-    "errors": 0
-  }
-}
-```
-
-### Bhoomi Agent
-Tracking property registration operations:
-```json
-{
-  "status": "success",
-  "executionId": "bhoomi-reg-2026-05-21-001",
-  "responseTime": 800,
-  "data": {
-    "registrationsProcessed": 150,
-    "registrationsApproved": 140,
-    "registrationsPending": 10,
-    "errors": 0
-  }
-}
-```
-
-### D365 Agent
-Tracking CRM synchronization:
-```json
-{
-  "status": "success",
-  "executionId": "d365-sync-2026-05-21-001",
-  "responseTime": 600,
-  "data": {
-    "recordsProcessed": 2000,
-    "recordsCreated": 500,
-    "recordsUpdated": 1500,
-    "errors": 0,
-    "warnings": 5
-  }
-}
-```
-
-## Database Structure
-
-**Backend:** PostgreSQL (Render)
-
-**Tables:**
-- `salesforce_telemetry` — Salesforce execution data
-- `bhoomi_telemetry` — Bhoomi execution data
-- `d365_telemetry` — D365 execution data
-
-**Schema:**
-```sql
-CREATE TABLE salesforce_telemetry (
-    id SERIAL PRIMARY KEY,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    payload JSONB
-);
-```
-
-Each table uses JSONB for flexible schema and better query performance.
-
-## Error Handling
-
-### Missing API Key
-```json
-{
-  "error": "Missing API key for salesforce. Use Authorization: Bearer YOUR_API_KEY"
-}
-```
-Status: `401 Unauthorized`
-
-### Invalid API Key
-```json
-{
-  "error": "Invalid API key for salesforce"
-}
-```
-Status: `401 Unauthorized`
-
-### Server Error
-```json
-{
-  "success": false,
-  "error": "Error message"
-}
-```
-Status: `500 Internal Server Error`
-
-### Invalid ID / Not Found
-```json
-{
-  "success": false,
-  "error": "Invalid id. Use a positive integer"
-}
-```
-Status: `400 Bad Request`
-
-```json
-{
-  "success": false,
-  "error": "Telemetry id 123 not found"
-}
-```
-Status: `404 Not Found`
-
-## JavaScript Client Example
+## JavaScript Client
 
 ```javascript
-// Send telemetry
-async function sendTelemetry(agent, data) {
-  const apiKeys = {
-    salesforce: 'sk-salesforce-123456',
-    bhoomi: 'sk-bhoomi-789abc',
-    d365: 'sk-d365-xyz789'
-  };
+const API_URL = "https://telemetry-api-96pk.onrender.com";
+const BEARER_TOKEN = "sk-telemetry-master-key-123";
 
+async function sendTelemetry(service, data) {
+  const response = await fetch(`${API_URL}/telemetry`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${BEARER_TOKEN}`,
+      "X-Service": service
+    },
+    body: JSON.stringify(data)
+  });
+  return await response.json();
+}
+
+async function fetchTelemetry(service, limit = 50, offset = 0) {
   const response = await fetch(
-    `https://telemetry-api-96pk.onrender.com/telemetry/${agent}`,
+    `${API_URL}/telemetry?limit=${limit}&offset=${offset}`,
     {
-      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKeys[agent]}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(data)
+        "Authorization": `Bearer ${BEARER_TOKEN}`,
+        "X-Service": service
+      }
     }
   );
+  return await response.json();
+}
 
+async function listServices() {
+  const response = await fetch(`${API_URL}/services`, {
+    headers: {
+      "Authorization": `Bearer ${BEARER_TOKEN}`
+    }
+  });
   return await response.json();
 }
 
 // Usage
-sendTelemetry('salesforce', {
-  status: 'success',
-  executionId: 'exec-123',
-  responseTime: 250,
-  data: { recordsProcessed: 1000 }
+await sendTelemetry("salesforce", {
+  status: "success",
+  executionId: "sf-001",
+  data: { recordsProcessed: 100 }
 });
 ```
 
-## Python Client Example
+## Python Client
 
 ```python
 import requests
-import json
 
-def send_telemetry(agent, data):
-    api_keys = {
-        'salesforce': 'sk-salesforce-123456',
-        'bhoomi': 'sk-bhoomi-789abc',
-        'd365': 'sk-d365-xyz789'
-    }
-    
+API_URL = "https://telemetry-api-96pk.onrender.com"
+BEARER_TOKEN = "sk-telemetry-master-key-123"
+
+def send_telemetry(service, data):
     headers = {
-        'Authorization': f"Bearer {api_keys[agent]}",
-        'Content-Type': 'application/json'
+        "Authorization": f"Bearer {BEARER_TOKEN}",
+        "X-Service": service
     }
-    
     response = requests.post(
-        f'https://telemetry-api-96pk.onrender.com/telemetry/{agent}',
-        headers=headers,
-        json=data
+        f"{API_URL}/telemetry",
+        json=data,
+        headers=headers
     )
-    
+    return response.json()
+
+def fetch_telemetry(service, limit=50, offset=0):
+    headers = {
+        "Authorization": f"Bearer {BEARER_TOKEN}",
+        "X-Service": service
+    }
+    response = requests.get(
+        f"{API_URL}/telemetry?limit={limit}&offset={offset}",
+        headers=headers
+    )
+    return response.json()
+
+def list_services():
+    headers = {
+        "Authorization": f"Bearer {BEARER_TOKEN}"
+    }
+    response = requests.get(
+        f"{API_URL}/services",
+        headers=headers
+    )
     return response.json()
 
 # Usage
-result = send_telemetry('salesforce', {
-    'status': 'success',
-    'executionId': 'exec-123',
-    'responseTime': 250,
-    'data': {'recordsProcessed': 1000}
+send_telemetry("salesforce", {
+    "status": "success",
+    "executionId": "sf-001",
+    "data": {"recordsProcessed": 100}
 })
-print(result)
 ```
 
-## Local Development
+## Database Structure
 
-### Clone from GitHub
-```bash
-git clone https://github.com/indiranivas/api-testing.git
-cd api-testing
+**Automatically Created Tables:**
+- `{service}_telemetry` — For each service
+
+**Schema:**
+```sql
+CREATE TABLE {service}_telemetry (
+    id SERIAL PRIMARY KEY,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    payload JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_{service}_telemetry_timestamp 
+ON {service}_telemetry(timestamp DESC);
 ```
 
-### Install & Run Locally
-```bash
-npm install
-npm start
-```
+## Error Handling
 
-Server runs on `http://localhost:8000`
-
-### Development Mode (auto-restart)
-```bash
-npm run dev
+### Missing Authorization
+```json
+{
+  "error": "Missing authorization header. Use: Authorization: Bearer YOUR_TOKEN"
+}
 ```
+Status: `401`
+
+### Invalid Token
+```json
+{
+  "error": "Invalid bearer token"
+}
+```
+Status: `401`
+
+### Missing X-Service Header
+```json
+{
+  "error": "Missing X-Service header. Specify service: X-Service: salesforce"
+}
+```
+Status: `400`
+
+### Empty Payload
+```json
+{
+  "success": false,
+  "error": "Payload cannot be empty. Send valid JSON data in request body."
+}
+```
+Status: `400`
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | PORT | 8000 | Server port |
-| SALESFORCE_API_KEY | sk-salesforce-123456 | Salesforce API key |
-| BHOOMI_API_KEY | sk-bhoomi-789abc | Bhoomi API key |
-| D365_API_KEY | sk-d365-xyz789 | D365 API key |
+| DATABASE_URL | - | PostgreSQL connection string |
+| BEARER_TOKEN | sk-telemetry-master-key-123 | Authentication token |
+
+## Local Development
+
+### Install
+```bash
+npm install
+```
+
+### Run
+```bash
+npm start
+```
+
+### Development Mode
+```bash
+npm run dev
+```
 
 ## Deployment
 
 This API is deployed on **Render** at: https://telemetry-api-96pk.onrender.com
 
-### To Deploy Your Own:
-1. Push code to GitHub
-2. Go to https://render.com
-3. Create new Web Service
-4. Connect GitHub repo
-5. Set build command: `npm install`
-6. Set start command: `node server.js`
-7. Add environment variables
-8. Deploy!
+### Environment Variables on Render
+1. Go to your Render service dashboard
+2. Add:
+   ```
+   DATABASE_URL=your-postgresql-url
+   BEARER_TOKEN=your-secure-token
+   ```
+3. Redeploy
 
-## Monitoring
+## Features Included
 
-Check API health:
-```bash
-curl https://telemetry-api-96pk.onrender.com/health
-```
+- ✅ Single unified endpoint
+- ✅ Dynamic table creation for new services
+- ✅ Service discovery with stats
+- ✅ Pagination support
+- ✅ Record deletion
+- ✅ Automatic timestamp indexing
+- ✅ JSONB flexible schema
+- ✅ Request logging
+- ✅ Error handling
+- ✅ Health checks
+- ✅ CORS enabled
+
+## What's New in v2.0
+
+✨ **Unified Architecture:**
+- One endpoint instead of 3
+- One bearer token instead of 3 API keys
+- Service type in header
+
+🚀 **Auto Service Discovery:**
+- New services auto-create tables
+- List all services
+- Get service statistics
+
+📊 **Better Analytics:**
+- Record counts per service
+- Last update timestamps
+- 24-hour and 7-day stats
+
+🔍 **Improved Querying:**
+- Pagination support
+- Timestamp indexing
+- Better performance
 
 ## Next Steps
 
-- [ ] Build agent clients (SDKs)
-- [ ] Add analytics/aggregation endpoints
-- [ ] Create dashboard for data visualization
-- [ ] Add data pagination and filtering
-- [ ] Implement data export (CSV/JSON)
-- [ ] Add advanced querying capabilities
+- Monitor service usage with `/services` endpoint
+- Set up data retention policies
+- Build analytics dashboard
+- Implement webhooks for alerts
+- Add data export features
 
 ## Support
 
-For issues:
-1. Check the error response
-2. Verify API key is correct
-3. Ensure Authorization header format: `Bearer YOUR_API_KEY`
-4. Check GitHub repo: https://github.com/indiranivas/api-testing
+For help:
+1. Check error responses
+2. Verify bearer token and X-Service header
+3. Ensure JSON is valid
+4. Check server logs: `npm start`
+5. Query database: `node query-db.js`
 
+## License
 
+MIT
