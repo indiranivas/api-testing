@@ -8,6 +8,21 @@ A modern, scalable telemetry collection system for tracking execution data acros
 
 ---
 
+## 📦 Version Information
+
+| Version | Code | Commit | Release Date | Status |
+|---------|------|--------|--------------|--------|
+| **v2.0** | `1b38b6c` | `1b38b6c09756ea3c79b44c375d0f26c4c66eef56` | June 2026 | ✅ Current |
+| **v1.0** | `cea695a` | `cea695a5fc213a86fb26c64c6dee61221008670f` | May 2026 | ⚠️ Legacy |
+
+**Checkout versions:**
+```bash
+git checkout v2.0  # Latest unified API
+git checkout v1.0  # Old multi-endpoint API
+```
+
+---
+
 ## 📋 Table of Contents
 
 - [Overview](#overview)
